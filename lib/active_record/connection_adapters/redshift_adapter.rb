@@ -23,7 +23,7 @@ module ActiveRecord
         raise ArgumentError, "No database specified. Missing argument: database."
       end
 
-      # The postgres drivers don't allow the creation of an unconnected PGconn object,
+      # The postgres drivers don't allow the creation of an unconnected PG::Connection object,
       # so just pass a nil connection object for the time being.
       ConnectionAdapters::RedshiftAdapter.new(nil, logger, [host, port, nil, nil, database, username, password], config)
     end
@@ -331,8 +331,8 @@ module ActiveRecord
         end
 
         def connection_active?
-          @connection.status == PGconn::CONNECTION_OK
-        rescue PGError
+          @connection.status == PG::Connection::CONNECTION_OK
+        rescue PG::Error
           false
         end
       end
@@ -379,7 +379,7 @@ module ActiveRecord
       def active?
         @connection.query 'SELECT 1'
         true
-      rescue PGError
+      rescue PG::Error
         false
       end
 
@@ -521,7 +521,7 @@ module ActiveRecord
 
       # Quotes column names for use in SQL queries.
       def quote_column_name(name) #:nodoc:
-        PGconn.quote_ident(name.to_s)
+        PG::Connection.quote_ident(name.to_s)
       end
 
       # Quote date/time values for use in SQL input. Includes microseconds
@@ -676,8 +676,8 @@ module ActiveRecord
         end
       end
 
-      # Executes an SQL statement, returning a PGresult object on success
-      # or raising a PGError exception otherwise.
+      # Executes an SQL statement, returning a PG::Result object on success
+      # or raising a PG::Error exception otherwise.
       def execute(sql, name = nil)
         log(sql, name) do
           @connection.async_exec(sql)
@@ -743,7 +743,7 @@ module ActiveRecord
       end
 
       def outside_transaction?
-        @connection.transaction_status == PGconn::PQTRANS_IDLE
+        @connection.transaction_status == PG::Connection::PQTRANS_IDLE
       end
 
       def create_savepoint
@@ -1157,12 +1157,12 @@ module ActiveRecord
             })
             @connection.block
             @connection.get_last_result
-          rescue PGError => e
+          rescue PG::Error => e
             # Get the PG code for the failure.  Annoyingly, the code for
             # prepared statements whose return value may have changed is
             # FEATURE_NOT_SUPPORTED.  Check here for more details:
             # http://git.redshift.org/gitweb/?p=redshift.git;a=blob;f=src/backend/utils/cache/plancache.c#l573
-            code = e.result.result_error_field(PGresult::PG_DIAG_SQLSTATE)
+            code = e.result.result_error_field(PG::Result::PG_DIAG_SQLSTATE)
             if FEATURE_NOT_SUPPORTED == code
               @statements.delete sql_key(sql)
               retry
@@ -1198,7 +1198,7 @@ module ActiveRecord
         # Connects to a Redshift server and sets up the adapter depending on the
         # connected server's characteristics.
         def connect
-          @connection = PGconn.connect(*@connection_parameters)
+          @connection = PG::Connection.connect(*@connection_parameters)
 
           # Money type has a fixed precision of 10 in Redshift 8.2 and below, and as of
           # Redshift 8.3 it has a fixed precision of 19. RedshiftColumn.extract_precision
